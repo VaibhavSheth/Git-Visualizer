@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>GitHub Code Visualizer</title>
+  <link rel="stylesheet" href="sidepanel.css" />
+</head>
+<body>
+  <div id="toolbar">
+    <div class="toolbar-inner">
+      <img src="icons/icon16.png" alt="" class="toolbar-icon" />
+      <span id="repo-name">GitHub Code Visualizer</span>
+    </div>
+  </div>
+
+  <div id="progress" hidden>
+    <div id="progress-text">Fetching 0 / 0 files...</div>
+    <progress id="progress-bar" value="0" max="100"></progress>
+  </div>
+
+  <div id="error-panel" hidden>
+    <div id="error-title">Error</div>
+    <div id="error-message"></div>
+    <div id="error-hint" hidden></div>
+  </div>
+
+  <div id="idle-panel">
+    <div class="idle-inner">
+      <svg class="idle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
+      </svg>
+      <p class="idle-title">Ready to visualize</p>
+      <p class="idle-sub">Navigate to a GitHub repository, then click the extension icon in your toolbar.</p>
+    </div>
+  </div>
+
+  <div id="files-ready-panel" hidden>
+    <div id="files-summary"></div>
+    <!-- Phase 3+ will render the graph here -->
+    <div id="graph-placeholder">
+      <p>Files loaded. Graph rendering coming in Phase 5.</p>
+      <ul id="files-list"></ul>
+    </div>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>
