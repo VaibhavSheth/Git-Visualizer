@@ -1,3 +1,5 @@
+import { parseFile } from './parser/index.js'
+
 const progressEl = document.getElementById('progress')
 const progressBar = document.getElementById('progress-bar')
 const progressText = document.getElementById('progress-text')
@@ -65,7 +67,7 @@ function showProgress(current, total, stage) {
   progressText.textContent = `${label} ${current} / ${total} files...`
 }
 
-function showFilesReady(files, meta) {
+function showFilesReady(nodes, meta) {
   progressEl.hidden = true
   idlePanel.hidden = true
   errorPanel.hidden = true
@@ -73,8 +75,8 @@ function showFilesReady(files, meta) {
 
   repoName.textContent = `${meta.owner}/${meta.repo}`
 
-  const byLang = files.reduce((acc, f) => {
-    acc[f.language] = (acc[f.language] || 0) + 1
+  const byLang = nodes.reduce((acc, n) => {
+    acc[n.language] = (acc[n.language] || 0) + 1
     return acc
   }, {})
 
@@ -82,15 +84,44 @@ function showFilesReady(files, meta) {
     .map(([lang, count]) => `${count} ${lang}`)
     .join(', ')
 
+  const withErrors = nodes.filter(n => n.parseError).length
+
   filesSummary.textContent =
-    `${files.length} files loaded (${langSummary}) · ${meta.skippedFiles} skipped · branch: ${meta.branch}`
+    `${nodes.length} files parsed (${langSummary})` +
+    (withErrors ? ` · ${withErrors} parse errors` : '') +
+    ` · branch: ${meta.branch}`
 
   filesList.innerHTML = ''
-  for (const f of files) {
+  for (const n of nodes) {
     const li = document.createElement('li')
-    li.textContent = f.path
+    const label = n.className ? `${n.className} (${n.language})` : n.path
+    li.textContent = label + (n.parseError ? ' ⚠' : '')
+    li.title = n.path
     filesList.appendChild(li)
   }
+}
+
+async function parseAndShow(files, meta) {
+  const parsed = []
+  const total = files.length
+
+  showProgress(0, total, 'parsing')
+
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i]
+    const node = parseFile(f.content, f.path)
+    if (node) parsed.push(node)
+
+    if (i % 5 === 0 || i === files.length - 1) {
+      showProgress(i + 1, total, 'parsing')
+      // yield to keep UI responsive
+      await new Promise(r => setTimeout(r, 0))
+    }
+  }
+
+  console.log('[sidepanel] parsed', parsed.length, 'nodes')
+  showFilesReady(parsed, meta)
+  // Phase 4+ will pass parsed nodes to graph/builder.js here
 }
 
 chrome.runtime.onMessage.addListener((message) => {
@@ -99,9 +130,7 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 
   if (message.type === 'FILES_READY') {
-    showFilesReady(message.files, message.meta)
-    // Phase 3+ will pass files to parser here
-    console.log('[sidepanel] FILES_READY', message.files.length, 'files', message.meta)
+    parseAndShow(message.files, message.meta)
   }
 
   if (message.type === 'ERROR') {
