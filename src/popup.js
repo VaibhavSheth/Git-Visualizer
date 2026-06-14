@@ -91,4 +91,18 @@ clearBtn.addEventListener('click', async () => {
   hideValidation()
 })
 
+document.getElementById('analyze-btn').addEventListener('click', async () => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+  if (!tab) return
+
+  if (!tab.url || !tab.url.startsWith('https://github.com/')) {
+    showValidation('error', 'Navigate to a GitHub repository first.')
+    return
+  }
+
+  await chrome.sidePanel.open({ tabId: tab.id })
+  chrome.tabs.sendMessage(tab.id, { type: 'REQUEST_REPO_INFO' }).catch(() => {})
+  window.close()
+})
+
 loadStoredToken()

@@ -1,4 +1,6 @@
 import { parseFile } from './parser/index.js'
+import { buildGraph } from './graph/builder.js'
+import { computeInsights } from './graph/insights.js'
 
 const progressEl = document.getElementById('progress')
 const progressBar = document.getElementById('progress-bar')
@@ -67,7 +69,7 @@ function showProgress(current, total, stage) {
   progressText.textContent = `${label} ${current} / ${total} files...`
 }
 
-function showFilesReady(nodes, meta) {
+function showGraphReady(graph, insights, meta) {
   progressEl.hidden = true
   idlePanel.hidden = true
   errorPanel.hidden = true
@@ -75,28 +77,60 @@ function showFilesReady(nodes, meta) {
 
   repoName.textContent = `${meta.owner}/${meta.repo}`
 
-  const byLang = nodes.reduce((acc, n) => {
-    acc[n.language] = (acc[n.language] || 0) + 1
-    return acc
-  }, {})
+  const lang = insights.languageBreakdown
+  const langParts = Object.entries(lang).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${k}`)
 
-  const langSummary = Object.entries(byLang)
-    .map(([lang, count]) => `${count} ${lang}`)
-    .join(', ')
-
-  const withErrors = nodes.filter(n => n.parseError).length
-
-  filesSummary.textContent =
-    `${nodes.length} files parsed (${langSummary})` +
-    (withErrors ? ` · ${withErrors} parse errors` : '') +
-    ` · branch: ${meta.branch}`
+  filesSummary.innerHTML = `
+    <strong>${graph.nodes.length}</strong> nodes &nbsp;·&nbsp;
+    <strong>${graph.edges.length}</strong> edges &nbsp;·&nbsp;
+    ${langParts.join(', ')}
+    ${insights.hotspots.length ? `&nbsp;·&nbsp; <span style="color:#BA7517">⚡ ${insights.hotspots.length} hotspots</span>` : ''}
+    ${insights.circularChains.length ? `&nbsp;·&nbsp; <span style="color:#E24B4A">🔄 ${insights.circularChains.length} circular</span>` : ''}
+    ${insights.orphans.length ? `&nbsp;·&nbsp; ${insights.orphans.length} orphans` : ''}
+  `
 
   filesList.innerHTML = ''
-  for (const n of nodes) {
+
+  // Hotspots section
+  if (insights.hotspots.length) {
+    const header = document.createElement('li')
+    header.style.cssText = 'color:#BA7517;font-weight:600;list-style:none;margin-top:8px'
+    header.textContent = '⚡ Hotspots (high fan-in + fan-out)'
+    filesList.appendChild(header)
+    for (const n of insights.hotspots.slice(0, 10)) {
+      const li = document.createElement('li')
+      li.textContent = `${n.label}  (in:${n.metrics.fanIn} out:${n.metrics.fanOut})`
+      li.title = n.filePath || n.id
+      filesList.appendChild(li)
+    }
+  }
+
+  // Circular deps
+  if (insights.circularChains.length) {
+    const header = document.createElement('li')
+    header.style.cssText = 'color:#E24B4A;font-weight:600;list-style:none;margin-top:8px'
+    header.textContent = '🔄 Circular dependencies'
+    filesList.appendChild(header)
+    for (const chain of insights.circularChains.slice(0, 5)) {
+      const li = document.createElement('li')
+      li.textContent = chain.map(id => id.split('.').pop()).join(' → ')
+      li.style.color = '#E24B4A'
+      filesList.appendChild(li)
+    }
+  }
+
+  // All nodes
+  const allHeader = document.createElement('li')
+  allHeader.style.cssText = 'color:#8b949e;font-weight:600;list-style:none;margin-top:8px'
+  allHeader.textContent = 'All nodes'
+  filesList.appendChild(allHeader)
+
+  for (const n of graph.nodes) {
+    if (n.type === 'external') continue
     const li = document.createElement('li')
-    const label = n.className ? `${n.className} (${n.language})` : n.path
-    li.textContent = label + (n.parseError ? ' ⚠' : '')
-    li.title = n.path
+    const flag = n.metrics.isHotspot ? ' ⚡' : n.metrics.isCircular ? ' 🔄' : n.metrics.isOrphan ? ' ○' : ''
+    li.textContent = `${n.label}${flag}`
+    li.title = `${n.filePath || n.id} · in:${n.metrics.fanIn} out:${n.metrics.fanOut}`
     filesList.appendChild(li)
   }
 }
@@ -120,8 +154,15 @@ async function parseAndShow(files, meta) {
   }
 
   console.log('[sidepanel] parsed', parsed.length, 'nodes')
-  showFilesReady(parsed, meta)
-  // Phase 4+ will pass parsed nodes to graph/builder.js here
+
+  const graph = buildGraph(parsed, meta)
+  const insights = computeInsights(graph)
+
+  console.log('[sidepanel] graph', graph.nodes.length, 'nodes', graph.edges.length, 'edges')
+  console.log('[sidepanel] insights', insights)
+
+  showGraphReady(graph, insights, meta)
+  // Phase 5 will render D3 graph here
 }
 
 chrome.runtime.onMessage.addListener((message) => {
