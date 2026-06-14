@@ -1,3 +1,71 @@
+// Maps import prefix → display group key
+const EXTERNAL_GROUPS = [
+  ['org.springframework',         'spring'],
+  ['org.hibernate',               'hibernate'],
+  ['org.junit',                   'junit'],
+  ['org.mockito',                 'mockito'],
+  ['org.slf4j',                   'slf4j'],
+  ['org.apache',                  'apache'],
+  ['com.fasterxml.jackson',       'jackson'],
+  ['com.google',                  'google'],
+  ['io.micrometer',               'micrometer'],
+  ['io.swagger',                  'swagger'],
+  ['jakarta',                     'jakarta'],
+  ['javax',                       'javax'],
+  ['java',                        'java-stdlib'],
+  // JS/Python externals (single-word package names)
+  ['react',   'react'],
+  ['vue',     'vue'],
+  ['axios',   'axios'],
+  ['lodash',  'lodash'],
+  ['express', 'express'],
+  ['django',  'django'],
+  ['flask',   'flask'],
+  ['fastapi', 'fastapi'],
+  ['numpy',   'numpy'],
+  ['pandas',  'pandas'],
+]
+
+const EXTERNAL_LABELS = {
+  'spring':      'Spring',
+  'hibernate':   'Hibernate',
+  'junit':       'JUnit',
+  'mockito':     'Mockito',
+  'slf4j':       'SLF4J',
+  'apache':      'Apache Commons',
+  'jackson':     'Jackson',
+  'google':      'Google libs',
+  'micrometer':  'Micrometer',
+  'swagger':     'Swagger',
+  'jakarta':     'Jakarta EE',
+  'javax':       'javax',
+  'java-stdlib': 'Java stdlib',
+}
+
+const JS_KEYWORDS = new Set([
+  'if','else','for','while','do','switch','case','break','continue',
+  'return','try','catch','finally','throw','new','delete','typeof',
+  'instanceof','in','of','void','yield','await','async','class','extends',
+  'super','import','export','default','const','let','var','function'
+])
+
+function getExternalGroupKey(raw) {
+  if (!raw || raw.length < 2) return null
+  for (const [prefix, key] of EXTERNAL_GROUPS) {
+    if (raw === prefix || raw.startsWith(prefix + '.') || raw.startsWith(prefix + '/')) {
+      return key
+    }
+  }
+  // Fallback: use root package if it looks like a real package name
+  const root = raw.split(/[./]/)[0]
+  if (!root || root.length < 2 || JS_KEYWORDS.has(root)) return null
+  return root
+}
+
+function getExternalLabel(groupKey) {
+  return EXTERNAL_LABELS[groupKey] || groupKey
+}
+
 export const NodeType = {
   PACKAGE:   'package',
   CLASS:     'class',
@@ -77,7 +145,9 @@ export function buildGraph(fileNodes, repoMeta) {
     const id = fn.fqn || fn.path
     const node = {
       id,
-      label: fn.className || fn.fileName || fn.path.split('/').pop(),
+      label: (fn.className && !JS_KEYWORDS.has(fn.className) ? fn.className : null)
+        || fn.fileName
+        || fn.path.split('/').pop(),
       type: deriveNodeType(fn),
       language: fn.language,
       filePath: fn.path,
@@ -94,19 +164,22 @@ export function buildGraph(fileNodes, repoMeta) {
     if (id !== fn.path) nodeMap.set(fn.path, node)
   }
 
-  // Step 2: create external nodes (deduplicated by root package name)
-  const externalMap = new Map()  // rootPkg → external Node id
+  // Step 2: create external nodes (grouped by meaningful framework name)
+  const externalMap = new Map()  // groupKey → external Node id
 
   for (const fn of fileNodes) {
     for (const imp of fn.imports || []) {
       if (!imp.isExternal) continue
-      const rootPkg = imp.raw.split('.')[0].split('/')[0]
-      if (!externalMap.has(rootPkg)) {
-        const extId = `external:${rootPkg}`
-        externalMap.set(rootPkg, extId)
+      // Skip if this "external" import actually resolves to an internal node (misclassified)
+      if (nodeMap.has(imp.raw)) continue
+      const groupKey = getExternalGroupKey(imp.raw)
+      if (!groupKey) continue  // skip ungroupable/invalid
+      if (!externalMap.has(groupKey)) {
+        const extId = `external:${groupKey}`
+        externalMap.set(groupKey, extId)
         nodeMap.set(extId, {
           id: extId,
-          label: rootPkg,
+          label: getExternalLabel(groupKey),
           type: NodeType.EXTERNAL,
           language: 'external',
           filePath: null,
@@ -128,12 +201,17 @@ export function buildGraph(fileNodes, repoMeta) {
     for (const imp of fn.imports || []) {
       let targetId = null
 
-      if (imp.isExternal) {
-        const rootPkg = imp.raw.split('.')[0].split('/')[0]
-        targetId = externalMap.get(rootPkg) || null
-      } else if (fn.language === 'java') {
-        // FQN match
-        if (nodeMap.has(imp.raw)) targetId = imp.raw
+      if (fn.language === 'java') {
+        // Always try internal FQN match first — repo classes may share org.springframework prefix
+        if (nodeMap.has(imp.raw)) {
+          targetId = imp.raw
+        } else if (imp.isExternal) {
+          const groupKey = getExternalGroupKey(imp.raw)
+          targetId = groupKey ? (externalMap.get(groupKey) || null) : null
+        }
+      } else if (imp.isExternal) {
+        const groupKey = getExternalGroupKey(imp.raw)
+        targetId = groupKey ? (externalMap.get(groupKey) || null) : null
       } else if (fn.language === 'javascript' || fn.language === 'typescript') {
         targetId = resolveJSPath(imp.raw, fn.path, nodeMap)
         // normalize: find canonical id (fqn may differ from path)
