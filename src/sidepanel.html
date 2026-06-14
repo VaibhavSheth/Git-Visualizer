@@ -6,43 +6,68 @@
   <link rel="stylesheet" href="sidepanel.css" />
 </head>
 <body>
+
+  <!-- Toolbar -->
   <div id="toolbar">
-    <div class="toolbar-inner">
+    <div class="toolbar-left">
       <img src="icons/icon16.png" alt="" class="toolbar-icon" />
       <span id="repo-name">GitHub Code Visualizer</span>
     </div>
+    <div class="toolbar-right">
+      <input id="search" type="text" placeholder="Search..." autocomplete="off" />
+      <button id="export-btn" class="icon-btn" title="Export PNG">⬇</button>
+      <button id="reanalyze-btn" class="icon-btn" title="Re-analyze">↺</button>
+    </div>
   </div>
 
+  <!-- Filter bar -->
+  <div id="filter-bar" hidden>
+    <button class="filter-btn active" data-filter="all">All</button>
+    <button class="filter-btn" data-filter="class">Classes</button>
+    <button class="filter-btn" data-filter="interface">Interfaces</button>
+    <button class="filter-btn" data-filter="external">External</button>
+    <span id="graph-stats"></span>
+  </div>
+
+  <!-- Progress -->
   <div id="progress" hidden>
     <div id="progress-text">Fetching 0 / 0 files...</div>
     <progress id="progress-bar" value="0" max="100"></progress>
   </div>
 
+  <!-- Error -->
   <div id="error-panel" hidden>
     <div id="error-title">Error</div>
     <div id="error-message"></div>
     <div id="error-hint" hidden></div>
   </div>
 
+  <!-- Idle -->
   <div id="idle-panel">
     <div class="idle-inner">
       <svg class="idle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
         <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
       </svg>
       <p class="idle-title">Ready to visualize</p>
-      <p class="idle-sub">Navigate to a GitHub repository, then click the extension icon in your toolbar.</p>
+      <p class="idle-sub">Navigate to a GitHub repository, open the extension popup, and click "Open Side Panel &amp; Analyze Repo".</p>
     </div>
   </div>
 
-  <div id="files-ready-panel" hidden>
-    <div id="files-summary"></div>
-    <!-- Phase 3+ will render the graph here -->
-    <div id="graph-placeholder">
-      <p>Files loaded. Graph rendering coming in Phase 5.</p>
-      <ul id="files-list"></ul>
-    </div>
+  <!-- Graph -->
+  <div id="graph-container" hidden>
+    <svg id="graph"></svg>
   </div>
 
+  <!-- Detail panel (slides in on node click) -->
+  <div id="detail-panel" hidden>
+    <button id="detail-close">✕</button>
+    <div id="detail-content"></div>
+  </div>
+
+  <!-- Insights panel -->
+  <div id="insights-panel" hidden></div>
+
+  <script src="lib/d3.min.js"></script>
   <script type="module" src="sidepanel.js"></script>
 </body>
 </html>
