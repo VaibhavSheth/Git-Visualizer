@@ -105,6 +105,50 @@ export function parseJava(content, filePath) {
       node.fqn = node.className
     }
 
+    // Same-package references (no import needed — detect by usage patterns)
+    // Collect already-imported simple names to avoid duplicates
+    const importedSimpleNames = new Set(
+      node.imports.map(i => i.raw.split('.').pop())
+    )
+
+    const samePackageNames = new Set()
+
+    // new ClassName( — constructor calls
+    const newRe = /\bnew\s+([A-Z][A-Za-z0-9_]*)\s*[<(]/g
+    while ((m = newRe.exec(content)) !== null) samePackageNames.add(m[1])
+
+    // Field/variable type declarations: private/protected/public TypeName varName
+    const fieldRe = /(?:private|protected|public)\s+(?:final\s+)?([A-Z][A-Za-z0-9_]*(?:<[^>]*>)?)\s+\w+\s*[;=,)]/g
+    while ((m = fieldRe.exec(content)) !== null) {
+      const base = m[1].replace(/<.*>/, '').trim()
+      samePackageNames.add(base)
+    }
+
+    // Return types: public/protected ClassName methodName(
+    const returnRe = /(?:public|protected)\s+(?:static\s+)?([A-Z][A-Za-z0-9_]*)\s+\w+\s*\(/g
+    while ((m = returnRe.exec(content)) !== null) samePackageNames.add(m[1])
+
+    // Add same-package refs as imports (builder resolves them by FQN)
+    const JAVA_BUILTINS = new Set([
+      'String','Integer','Long','Boolean','Double','Float','List','Map','Set',
+      'Optional','Collection','Object','Class','Enum','Exception','Override',
+      'Deprecated','SuppressWarnings','Iterable','Comparable','Void','Number'
+    ])
+    for (const name of samePackageNames) {
+      if (JAVA_BUILTINS.has(name)) continue
+      if (importedSimpleNames.has(name)) continue
+      if (name === node.className) continue
+      // Construct the FQN assuming same package
+      const fqn = node.packageName ? `${node.packageName}.${name}` : name
+      node.imports.push({
+        raw: fqn,
+        alias: null,
+        isExternal: false,
+        resolvedPath: null,
+        isSamePackageRef: true
+      })
+    }
+
     // Methods
     const methodRe = /(?:public|protected|private)\s+(?:static\s+)?(?:final\s+)?(?:synchronized\s+)?(?:abstract\s+)?[\w<>\[\]]+\s+(\w+)\s*\(/g
     const SKIP_METHODS = new Set(['if', 'while', 'for', 'switch', 'catch', 'return'])
