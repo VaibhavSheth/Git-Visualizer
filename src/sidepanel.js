@@ -19,6 +19,14 @@ const detailPanel   = document.getElementById('detail-panel')
 const detailContent = document.getElementById('detail-content')
 const insightsPanel = document.getElementById('insights-panel')
 const tooltip       = document.getElementById('tooltip')
+const repoMetaBar   = document.getElementById('repo-meta-bar')
+const metaLanguage  = document.getElementById('meta-language')
+const metaStars     = document.getElementById('meta-stars')
+const metaFiles     = document.getElementById('meta-files')
+const metaCache     = document.getElementById('meta-cache')
+const folderPicker  = document.getElementById('folder-picker')
+const folderList    = document.getElementById('folder-list')
+const folderFileCount = document.getElementById('folder-file-count')
 
 // ── Visual config ─────────────────────────────────────────
 const NODE_COLORS = {
@@ -397,13 +405,6 @@ document.getElementById('export-btn').addEventListener('click', () => {
   img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(data)))
 })
 
-// ── Re-analyze ────────────────────────────────────────────
-document.getElementById('reanalyze-btn').addEventListener('click', async () => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-  if (tab) chrome.tabs.sendMessage(tab.id, { type: 'REQUEST_REPO_INFO' }).catch(() => {})
-  showIdle()
-})
-
 // ── Insights panel ────────────────────────────────────────
 function showInsightsPanel(insights) {
   insightsPanel.hidden = false
@@ -451,6 +452,8 @@ function showIdle() {
   progressEl.hidden = true
   detailPanel.hidden = true
   insightsPanel.hidden = true
+  repoMetaBar.hidden = true
+  folderPicker.hidden = true
   document.getElementById('legend').hidden = true
 }
 
@@ -520,12 +523,87 @@ async function parseAndShow(files, meta) {
   renderGraph(graph)
   showInsightsPanel(insights)
   showLegend()
+  showRepoMeta({ ...meta, totalFiles: meta.totalFiles }, meta.fromCache)
 }
+
+// ── Repo meta bar ─────────────────────────────────────────
+function showRepoMeta(meta, fromCache = false) {
+  repoMetaBar.hidden = false
+  if (meta.language) {
+    metaLanguage.textContent = meta.language
+    metaLanguage.hidden = false
+  }
+  if (meta.stars != null) {
+    metaStars.textContent = `★ ${meta.stars >= 1000 ? (meta.stars / 1000).toFixed(1) + 'k' : meta.stars}`
+    metaStars.hidden = false
+  }
+  if (meta.totalFiles) {
+    metaFiles.textContent = `${meta.totalFiles} files`
+    metaFiles.hidden = false
+  }
+  metaCache.hidden = !fromCache
+}
+
+// ── Folder picker (large repos) ───────────────────────────
+function showFolderPicker(message) {
+  idlePanel.hidden = true
+  progressEl.hidden = true
+  errorPanel.hidden = true
+  graphContainer.hidden = true
+  filterBar.hidden = true
+  folderPicker.hidden = false
+
+  folderFileCount.textContent = message.fileCount
+
+  folderList.innerHTML = ''
+
+  // "Analyze all" option
+  const allBtn = document.createElement('button')
+  allBtn.className = 'folder-btn folder-btn-all'
+  allBtn.textContent = `Analyze all ${message.fileCount} files (slow)`
+  allBtn.addEventListener('click', () => {
+    folderPicker.hidden = true
+    chrome.runtime.sendMessage({
+      type: 'ANALYZE_REPO_FOLDER',
+      owner: message.owner,
+      repo: message.repo,
+      folder: ''
+    })
+  })
+  folderList.appendChild(allBtn)
+
+  for (const folder of message.folders) {
+    const btn = document.createElement('button')
+    btn.className = 'folder-btn'
+    btn.textContent = `📁 ${folder}/`
+    btn.addEventListener('click', () => {
+      folderPicker.hidden = true
+      chrome.runtime.sendMessage({
+        type: 'ANALYZE_REPO_FOLDER',
+        owner: message.owner,
+        repo: message.repo,
+        folder
+      })
+    })
+    folderList.appendChild(btn)
+  }
+}
+
+// ── Re-analyze (clears cache) ─────────────────────────────
+document.getElementById('reanalyze-btn').addEventListener('click', async () => {
+  chrome.runtime.sendMessage({ type: 'CLEAR_CACHE' })
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+  if (tab) chrome.tabs.sendMessage(tab.id, { type: 'REQUEST_REPO_INFO' }).catch(() => {})
+  showIdle()
+})
 
 // ── Message listener ──────────────────────────────────────
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === 'PROGRESS')    showProgress(message.current, message.total, message.stage)
+  if (message.type === 'REPO_META')   showRepoMeta(message)
   if (message.type === 'FILES_READY') parseAndShow(message.files, message.meta)
+  if (message.type === 'CACHE_HIT')   parseAndShow(message.files, { ...message.meta, fromCache: true })
+  if (message.type === 'TOO_MANY_FILES') showFolderPicker(message)
   if (message.type === 'ERROR') {
     showError(message)
     console.warn('[sidepanel] ERROR', message.code, message.message)

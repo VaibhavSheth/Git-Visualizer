@@ -88,6 +88,69 @@ body {
   white-space: nowrap;
 }
 
+/* ── Repo meta bar ── */
+#repo-meta-bar {
+  background: #0d1117;
+  border-bottom: 1px solid #21262d;
+  padding: 4px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.meta-chip {
+  font-size: 11px;
+  color: #6e7681;
+  padding: 2px 7px;
+  background: #161b22;
+  border: 1px solid #21262d;
+  border-radius: 10px;
+}
+.meta-cache {
+  color: #3fb950;
+  border-color: #238636;
+  background: #0d2119;
+}
+
+/* ── Folder picker ── */
+#folder-picker {
+  padding: 16px 14px;
+  flex: 1;
+  overflow-y: auto;
+}
+.folder-picker-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f0f6fc;
+  margin-bottom: 6px;
+}
+.folder-picker-sub {
+  font-size: 12px;
+  color: #8b949e;
+  margin-bottom: 12px;
+}
+.folder-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 12px;
+  margin-bottom: 6px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #cdd9e5;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.folder-btn:hover { background: #21262d; border-color: #388bfd; }
+.folder-btn-all {
+  color: #8b949e;
+  font-size: 11px;
+  margin-bottom: 12px;
+}
+
 /* ── Progress ── */
 #progress {
   padding: 10px 12px;
