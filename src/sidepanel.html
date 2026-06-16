@@ -35,6 +35,23 @@
     <progress id="progress-bar" value="0" max="100"></progress>
   </div>
 
+  <!-- Repo meta bar -->
+  <div id="repo-meta-bar" hidden>
+    <span id="meta-language" class="meta-chip"></span>
+    <span id="meta-stars" class="meta-chip"></span>
+    <span id="meta-files" class="meta-chip"></span>
+    <span id="meta-cache" class="meta-chip meta-cache" hidden>⚡ cached</span>
+  </div>
+
+  <!-- Large repo folder picker -->
+  <div id="folder-picker" hidden>
+    <div class="folder-picker-inner">
+      <div class="folder-picker-title">Repository has <span id="folder-file-count"></span> source files</div>
+      <div class="folder-picker-sub">Pick a folder to analyze:</div>
+      <div id="folder-list"></div>
+    </div>
+  </div>
+
   <!-- Error -->
   <div id="error-panel" hidden>
     <div id="error-title">Error</div>
