@@ -76,6 +76,7 @@ function buildPackageColorMap(nodes) {
 let simulation = null
 let svgNode = null, svgLink = null
 let currentGraph = null
+let currentZoomScale = 1
 
 function initSVG() {
   const svg = d3.select('#graph')
@@ -84,7 +85,17 @@ function initSVG() {
   const h = graphContainer.clientHeight
   const container = svg.append('g').attr('class', 'zoom-container')
   const zoom = d3.zoom().scaleExtent([0.05, 4])
-    .on('zoom', e => container.attr('transform', e.transform))
+    .on('zoom', e => {
+      container.attr('transform', e.transform)
+      currentZoomScale = e.transform.k
+      if (svgNode) {
+        svgNode.selectAll('.node-label').style('display', function(d) {
+          if (currentZoomScale >= 1.5) return 'block'
+          if (currentZoomScale >= 0.8) return d.metrics.isHotspot || d.type !== 'external' ? 'block' : 'none'
+          return d.metrics.isHotspot ? 'block' : 'none'
+        })
+      }
+    })
   svg.call(zoom)
 
   // Arrow markers
@@ -132,7 +143,8 @@ function renderGraph(graph) {
     for (let i = 0; i < 500; i++) simulation.tick()
   }
 
-  // ── Package hull layer (behind edges) ──
+  // ── Package hull layer (behind edges) — skip for large graphs (perf) ──
+  const showHulls = nodes.length <= 150
   const hullG = container.append('g').attr('class', 'hulls')
 
   // ── Edges ──
@@ -218,7 +230,7 @@ function renderGraph(graph) {
     edgeLabels
       .attr('x', d => (d.source.x + d.target.x) / 2)
       .attr('y', d => (d.source.y + d.target.y) / 2 - 4)
-    drawHulls(hullG, nodes, pkgColorMap)
+    if (showHulls) drawHulls(hullG, nodes, pkgColorMap)
   }
 
   if (nodes.length > 200) {
