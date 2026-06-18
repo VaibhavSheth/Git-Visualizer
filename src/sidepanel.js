@@ -88,10 +88,10 @@ function initSVG() {
     .on('zoom', e => {
       container.attr('transform', e.transform)
       currentZoomScale = e.transform.k
-      if (svgNode) {
+      if (svgNode && currentGraph && currentGraph.nodes.length > 80) {
         svgNode.selectAll('.node-label').style('display', function(d) {
           if (currentZoomScale >= 1.5) return 'block'
-          if (currentZoomScale >= 0.8) return d.metrics.isHotspot || d.type !== 'external' ? 'block' : 'none'
+          if (currentZoomScale >= 0.8) return d.type !== 'external' ? 'block' : 'none'
           return d.metrics.isHotspot ? 'block' : 'none'
         })
       }
@@ -579,7 +579,7 @@ function showFolderPicker(message) {
       type: 'ANALYZE_REPO_FOLDER',
       owner: message.owner,
       repo: message.repo,
-      folder: ''
+      folder: null
     })
   })
   folderList.appendChild(allBtn)

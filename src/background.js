@@ -147,7 +147,7 @@ async function analyzeRepo({ owner, repo, folderFilter = null }) {
   }
 
   // Warn if too large — send folder list and let user pick
-  if (allFiles.length > MAX_FILES_WARNING && !folderFilter) {
+  if (allFiles.length > MAX_FILES_WARNING && folderFilter === null) {
     const folders = [...new Set(allFiles.map(f => f.path.split('/')[0]))]
     sendToSidePanel({
       type: 'TOO_MANY_FILES',
