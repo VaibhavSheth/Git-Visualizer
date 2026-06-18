@@ -231,10 +231,11 @@ body {
 #detail-close {
   position: absolute;
   top: 10px; right: 12px;
-  background: none; border: none;
-  color: #6e7681; cursor: pointer; font-size: 14px;
+  background: #21262d; border: 1px solid #30363d;
+  border-radius: 4px; padding: 2px 7px;
+  color: #8b949e; cursor: pointer; font-size: 13px;
 }
-#detail-close:hover { color: #e6edf3; }
+#detail-close:hover { background: #30363d; color: #e6edf3; }
 #detail-content h3 { font-size: 14px; font-weight: 600; color: #f0f6fc; margin-bottom: 10px; }
 .detail-row {
   display: flex; gap: 8px;
